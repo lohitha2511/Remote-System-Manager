@@ -21,23 +21,32 @@ def interact_with_server(client_socket):
         client_socket.close()
 
 def start_video_stream_client(host='127.0.0.1', port=9999):
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((host, port))
-    print(f"Connected to video stream server at {host}:{port}")
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_address = (host, port)
+    print(f"Sending video stream to server at {host}:{port}")
 
     try:
         while True:
-            # Capture the screen
             screenshot = pyautogui.screenshot()
             frame = np.array(screenshot)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Encode the frame
-            encoded, buffer = cv2.imencode('.jpg', frame)
-            data = pickle.dumps(buffer)
-            message_size = struct.pack("L", len(data))
+            # Encode as JPEG to reduce size
+            frame = cv2.resize(frame, (640, 360))
+
             
-            client_socket.sendall(message_size + data)
+            encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 30])
+
+            
+            # Serialize for sending
+            data = pickle.dumps(buffer)
+
+            # Ensure frame fits in UDP datagram
+            if len(data) > 65000:
+                print("Frame too large for UDP packet, skipping...")
+                continue
+
+            client_socket.sendto(data, server_address)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break

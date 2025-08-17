@@ -19,45 +19,25 @@ def handle_client(client_socket):
     finally:
         client_socket.close()
 
+
 def start_video_stream_server(host='0.0.0.0', port=9999):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((host, port))
-    server_socket.listen(5)
     print(f"Video stream server listening on {host}:{port}")
 
-    conn, addr = server_socket.accept()
-    print(f"Accepted connection from {addr}")
-
-    data = b""
-    payload_size = struct.calcsize("L")
-
     while True:
-        while len(data) < payload_size:
-            packet = conn.recv(4*1024)  # 4K
-            if not packet:
+        try:
+            data, addr = server_socket.recvfrom(65535)  # max UDP datagram size
+            frame_data = pickle.loads(data)
+            frame = cv2.imdecode(np.frombuffer(frame_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+
+            cv2.imshow('Video Stream', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-            data += packet
-
-        if len(data) < payload_size:
+        except Exception as e:
+            print(f"Error receiving frame: {e}")
             break
 
-        packed_msg_size = data[:payload_size]
-        data = data[payload_size:]
-        msg_size = struct.unpack("L", packed_msg_size)[0]
-
-        while len(data) < msg_size:
-            data += conn.recv(4*1024)
-        frame_data = data[:msg_size]
-        data = data[msg_size:]
-
-        frame = pickle.loads(frame_data)
-        frame = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
-
-        cv2.imshow('Video Stream', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    conn.close()
     server_socket.close()
     cv2.destroyAllWindows()
 
